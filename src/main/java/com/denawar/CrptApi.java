@@ -4,8 +4,6 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import okhttp3.*;
@@ -38,7 +36,7 @@ public class CrptApi {
 
 
         try (Response response = client.newCall(request).execute()) {
-            return response.body() != null ? response.body().string() : "response body is empty";
+            return response.body() != null ? response.body().string() : "";
         } catch (IOException e) {
             IOException exception = new IOException("problem with input/output during sending document");
             exception.initCause(e);
@@ -50,48 +48,18 @@ public class CrptApi {
         private Participant description;
         private String docId;
         private String docStatus;
-        private String docType;// = "LP_INTRODUCE_GOODS";
-        private boolean importRequest;// = true;
+        private String docType;
+        private boolean importRequest;
         private String ownerInn;
         private String participantInn;
         private String producerInn;
-        private LocalDate productionDate;// = LocalDate.of(2020, 01, 23)
+        private LocalDate productionDate;
         private String productionType;
 
         private List<Product> products;
 
         private LocalDate regDate;
         private String regNumber;
-
-        /*
-                    {
-                    "description":{ "participantInn": "string" },
-                    "doc_id": "string",
-                    "doc_status": "string",
-                    "doc_type": "LP_INTRODUCE_GOODS",
-                    "importRequest": true,
-                    "owner_inn": "string",
-                    "participant_inn": "string",
-                    "producer_inn":"string",
-                    "production_date": "2020-01-23",
-                    "production_type": "string",
-                    "products": [
-                                    {
-                                        "certificate_document": "string",
-                                        "certificate_document_date": "2020-01-23",
-                                        "certificate_document_number": "string",
-                                        "owner_inn": "string",
-                                        "producer_inn": "string",
-                                        "production_date": "2020-01-23",
-                                        "tnved_code": "string",
-                                        "uit_code": "string",
-                                        "uitu_code": "string"
-                                    }
-                                ],
-                    "reg_date": "2020-01-23",
-                    "reg_number": "string"
-                    }
-                     */
 
 
         public Document() {
@@ -144,13 +112,12 @@ public class CrptApi {
             ObjectMapper objectMapper = new ObjectMapper();
             SimpleModule module = new SimpleModule();
             module.addSerializer(CrptApi.Document.class, new DocumentSerializer());
-            module.addSerializer(CrptApi.Product.class, this.products.get(0).new ProductSerializer());
+            module.addSerializer(CrptApi.Product.class, new ProductSerializer());
             objectMapper.registerModule(module);
 
             String json = null;
             try {
                 json = objectMapper.writeValueAsString(this);
-                System.out.println("document serialized: " + json);
             } catch (JsonProcessingException e) {
                 throw new RuntimeException(e);
             }
@@ -198,11 +165,11 @@ public class CrptApi {
 
     public class Product {
         private String certificateDocument;
-        private LocalDate certificateDocumentDate;// = LocalDate.of(2020, 01, 23);
+        private LocalDate certificateDocumentDate;
         private String certificateDocumentNumber;
         private String ownerInn;
         private String producerInn;
-        private LocalDate productionDate;// = LocalDate.of(2020, 01, 23);
+        private LocalDate productionDate;
         private String tnvedCode;
         private String uitCode;
         private String uituCode;
@@ -238,22 +205,22 @@ public class CrptApi {
             this.uitCode = uitCode;
             this.uituCode = uituCode;
         }
+    }
 
-        public class ProductSerializer extends JsonSerializer<Product> {
-            @Override
-            public void serialize(Product product, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
-                jsonGenerator.writeStartObject();
-                jsonGenerator.writeStringField("certificate_document", product.certificateDocument);
-                jsonGenerator.writeStringField("ertificate_document_date", product.certificateDocumentDate.toString());
-                jsonGenerator.writeStringField("certificate_document_number", product.certificateDocumentNumber);
-                jsonGenerator.writeStringField("owner_inn", product.ownerInn);
-                jsonGenerator.writeStringField("producer_inn", product.producerInn);
-                jsonGenerator.writeStringField("production_date", product.productionDate.toString());
-                jsonGenerator.writeStringField("tnved_code", product.tnvedCode);
-                jsonGenerator.writeStringField("uit_code", product.uitCode);
-                jsonGenerator.writeStringField("uitu_code", product.uituCode);
-                jsonGenerator.writeEndObject();
-            }
+    public class ProductSerializer extends JsonSerializer<Product> {
+        @Override
+        public void serialize(Product product, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
+            jsonGenerator.writeStartObject();
+            jsonGenerator.writeStringField("certificate_document", product.certificateDocument);
+            jsonGenerator.writeStringField("ertificate_document_date", product.certificateDocumentDate.toString());
+            jsonGenerator.writeStringField("certificate_document_number", product.certificateDocumentNumber);
+            jsonGenerator.writeStringField("owner_inn", product.ownerInn);
+            jsonGenerator.writeStringField("producer_inn", product.producerInn);
+            jsonGenerator.writeStringField("production_date", product.productionDate.toString());
+            jsonGenerator.writeStringField("tnved_code", product.tnvedCode);
+            jsonGenerator.writeStringField("uit_code", product.uitCode);
+            jsonGenerator.writeStringField("uitu_code", product.uituCode);
+            jsonGenerator.writeEndObject();
         }
     }
 
