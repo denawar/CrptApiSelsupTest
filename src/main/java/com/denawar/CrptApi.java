@@ -15,7 +15,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -27,83 +26,69 @@ public class CrptApi {
     private LocalDateTime startTime;
     private int requestsLeft;
 
-    private Lock requestsLock;
-    private Condition requestsAreInStock;
+    private final Lock requestsLock;
 
     public CrptApi(TimeUnit timeunit, int requestLimit) {
         this.TIME_UNIT = timeunit;
         this.REQUESTS_LIMIT = requestLimit;
-        this.startTime = null;
+        this.startTime = LocalDateTime.now();
+        ;
         this.requestsLeft = 0;
         requestsLock = new ReentrantLock();
-        requestsAreInStock = requestsLock.newCondition();
     }
 
-    public String SendDocument(Document document, String signature) throws IOException, InterruptedException {
-        if (startTime == null) {
+    private void refreshTimer() {
+        long diffMillis = ChronoUnit.MILLIS.between(startTime, LocalDateTime.now());
+        long diffTimeUnits = TIME_UNIT.convert(diffMillis, TimeUnit.MILLISECONDS);
+
+        if (diffTimeUnits > 1) {
             startTime = LocalDateTime.now();
             requestsLeft = REQUESTS_LIMIT;
         }
-        String result="";
+    }
+
+    public String sendDocument(Document document, String signature) throws IOException, InterruptedException {
+        String json = document.toJSON();
+        OkHttpClient client = new OkHttpClient();
+        RequestBody body = RequestBody.create(json, MediaType.get("application/json"));
+
+        Request request = new Request.Builder()
+                .url(URL)
+                .post(body)
+                .build();
+
         requestsLock.lock();
         try {
-            while (requestsLeft > 0) {
-                requestsAreInStock.await();
-                String json = document.toJSON();
-                OkHttpClient client = new OkHttpClient();
-                RequestBody body = RequestBody.create(json, MediaType.get("application/json"));
-
-                Request request = new Request.Builder()
-                        .url(URL)
-                        .post(body)
-                        .build();
-
-
-                try (Response response = client.newCall(request).execute()) {
-
-                    long diffMillis = ChronoUnit.MILLIS.between(startTime, LocalDateTime.now());
-                    long diffTimeUnits = TIME_UNIT.convert(diffMillis, TimeUnit.MILLISECONDS);
-                    if (diffTimeUnits > 0) {
-                        startTime = LocalDateTime.now();
-                        requestsLeft = REQUESTS_LIMIT;
-                    } else {
-                        requestsLeft--;
-                    }
-                    requestsAreInStock.signalAll();
-                    result =  response.body() != null ? response.body().string() : "";
-                } catch (IOException e) {
-                    IOException exception = new IOException("problem with input/output during sending document");
-                    exception.initCause(e);
-                    throw exception;
-                }
-
+            while (requestsLeft < 1) {
+                refreshTimer();
             }
-            return result;
-        } catch (InterruptedException e) {
-            InterruptedException exception = new InterruptedException("thread was interrupted during sending document");
-            exception.initCause(e);
-            throw exception;
+            try (Response response = client.newCall(request).execute()) {
+                requestsLeft--;
+                refreshTimer();
+                return response.body() != null ? response.body().string() : "";
+            }
         } finally {
             requestsLock.unlock();
         }
     }
 
+
     public class Document {
-        private Participant description;
-        private String docId;
-        private String docStatus;
-        private String docType;
-        private boolean importRequest;
-        private String ownerInn;
-        private String participantInn;
-        private String producerInn;
-        private LocalDate productionDate;
-        private String productionType;
+        private final Participant description;
+        private final String docId;
+        private final String docStatus;
+        private final String docType;
+        private final boolean importRequest;
+        private final String ownerInn;
+        private final String participantInn;
+        private final String producerInn;
+        private final LocalDate productionDate;
+        private final String productionType;
 
-        private List<Product> products;
+        private final List<Product> products;
 
-        private LocalDate regDate;
-        private String regNumber;
+        private final LocalDate regDate;
+        private final String regNumber;
 
 
         public Document() {
@@ -195,7 +180,7 @@ public class CrptApi {
     }
 
     public class Participant {
-        private String participantInn;
+        private final String participantInn;
 
         public Participant(String participantInn) {
             this.participantInn = participantInn;
@@ -208,15 +193,15 @@ public class CrptApi {
 
 
     public class Product {
-        private String certificateDocument;
-        private LocalDate certificateDocumentDate;
-        private String certificateDocumentNumber;
-        private String ownerInn;
-        private String producerInn;
-        private LocalDate productionDate;
-        private String tnvedCode;
-        private String uitCode;
-        private String uituCode;
+        private final String certificateDocument;
+        private final LocalDate certificateDocumentDate;
+        private final String certificateDocumentNumber;
+        private final String ownerInn;
+        private final String producerInn;
+        private final LocalDate productionDate;
+        private final String tnvedCode;
+        private final String uitCode;
+        private final String uituCode;
 
         public Product() {
             this.certificateDocument = "string";
