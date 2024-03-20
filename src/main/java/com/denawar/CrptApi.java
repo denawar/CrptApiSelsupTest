@@ -32,8 +32,7 @@ public class CrptApi {
         this.TIME_UNIT = timeunit;
         this.REQUESTS_LIMIT = requestLimit;
         this.startTime = LocalDateTime.now();
-        ;
-        this.requestsLeft = 0;
+        this.requestsLeft = REQUESTS_LIMIT;
         requestsLock = new ReentrantLock();
     }
 

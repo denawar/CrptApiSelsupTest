@@ -10,7 +10,7 @@ public class CrptApiApp {
         CrptApi.Document document = sender.new Document();
 
         Runnable task = () -> {
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < 10; i++) {
                 try {
                     String response = sender.sendDocument(document, "");
                     System.out.println("response: " + response);
