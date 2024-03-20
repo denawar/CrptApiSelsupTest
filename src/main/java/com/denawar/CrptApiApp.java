@@ -11,7 +11,7 @@ public class CrptApiApp {
         try {
             String response = sender.SendDocument(document, "");
             System.out.println("response: "+response);
-        } catch (IOException e) {
+        } catch (IOException | InterruptedException e) {
             System.out.println("Problem with sending document:" + e);
         }
 

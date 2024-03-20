@@ -10,37 +10,81 @@ import okhttp3.*;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class CrptApi {
-    private TimeUnit timeUnit;
-    private int requestlimit;
+    private final TimeUnit TIME_UNIT;
+    private final int REQUESTS_LIMIT;
     private final String URL = "https://ismp.crpt.ru/api/v3/lk/documents/create";
 
+    private LocalDateTime startTime;
+    private int requestsLeft;
+
+    private Lock requestsLock;
+    private Condition requestsAreInStock;
+
     public CrptApi(TimeUnit timeunit, int requestLimit) {
-        this.timeUnit = timeunit;
-        this.requestlimit = requestLimit;
+        this.TIME_UNIT = timeunit;
+        this.REQUESTS_LIMIT = requestLimit;
+        this.startTime = null;
+        this.requestsLeft = 0;
+        requestsLock = new ReentrantLock();
+        requestsAreInStock = requestsLock.newCondition();
     }
 
-    public String SendDocument(Document document, String signature) throws IOException {
-        String json = document.toJSON();
-        OkHttpClient client = new OkHttpClient();
-        RequestBody body = RequestBody.create(json, MediaType.get("application/json"));
+    public String SendDocument(Document document, String signature) throws IOException, InterruptedException {
+        if (startTime == null) {
+            startTime = LocalDateTime.now();
+            requestsLeft = REQUESTS_LIMIT;
+        }
+        String result="";
+        requestsLock.lock();
+        try {
+            while (requestsLeft > 0) {
+                requestsAreInStock.await();
+                String json = document.toJSON();
+                OkHttpClient client = new OkHttpClient();
+                RequestBody body = RequestBody.create(json, MediaType.get("application/json"));
 
-        Request request = new Request.Builder()
-                .url(URL)
-                .post(body)
-                .build();
+                Request request = new Request.Builder()
+                        .url(URL)
+                        .post(body)
+                        .build();
 
 
-        try (Response response = client.newCall(request).execute()) {
-            return response.body() != null ? response.body().string() : "";
-        } catch (IOException e) {
-            IOException exception = new IOException("problem with input/output during sending document");
+                try (Response response = client.newCall(request).execute()) {
+
+                    long diffMillis = ChronoUnit.MILLIS.between(startTime, LocalDateTime.now());
+                    long diffTimeUnits = TIME_UNIT.convert(diffMillis, TimeUnit.MILLISECONDS);
+                    if (diffTimeUnits > 0) {
+                        startTime = LocalDateTime.now();
+                        requestsLeft = REQUESTS_LIMIT;
+                    } else {
+                        requestsLeft--;
+                    }
+                    requestsAreInStock.signalAll();
+                    result =  response.body() != null ? response.body().string() : "";
+                } catch (IOException e) {
+                    IOException exception = new IOException("problem with input/output during sending document");
+                    exception.initCause(e);
+                    throw exception;
+                }
+
+            }
+            return result;
+        } catch (InterruptedException e) {
+            InterruptedException exception = new InterruptedException("thread was interrupted during sending document");
             exception.initCause(e);
             throw exception;
+        } finally {
+            requestsLock.unlock();
         }
     }
 
